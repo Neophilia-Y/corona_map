@@ -1,35 +1,32 @@
 import pandas as pd
 
 
-def make_country_df():
-    def country_data(condition, country):
+def make_country_df(country):
+    def make_df(condition):
         df = pd.read_csv(f"data/global_{condition}.csv")
+        df = df.loc[df["Country/Region"] == country]
         df = (
-            df.loc[df["Country/Region"] == country, "1/22/20":]
+            df.drop(columns=["Province/State", "Country/Region", "Lat", "Long"])
             .sum()
             .reset_index(name=condition)
         )
         df = df.rename(columns={"index": "date"})
         return df
 
-    df = pd.read_csv("data/global_confirmed.csv")
-    countries = list(df["Country/Region"].unique())
-
-    df_dict = {}
-    for country in countries:
-        for condition in conditions:
-            df = country_data(condition, country)
-            if country not in df_dict.keys():
-                df_dict[country] = df
-            else:
-                df_dict[country] = df_dict[country].merge(df)
-    return df_dict
+    final_df = None
+    for condition in conditions:
+        condition_df = make_df(condition)
+        if final_df is None:
+            final_df = condition_df
+        else:
+            final_df = final_df.merge(condition_df)
+    return final_df
 
 
 # Time Series Data preprocessor
 
 
-def time_series_total():
+def make_global_df():
     def extract(condition):
         df = pd.read_csv(f"data/global_{condition}.csv")
         df = df.iloc[:, 4:].sum().reset_index(name=condition)
@@ -54,14 +51,18 @@ conditions = ["confirmed", "recovered", "deaths"]
 
 df = pd.read_csv("data/daily_report.csv")
 
-total_df = df[["Confirmed", "Deaths", "Recovered"]].sum().reset_index(name="count")
-total_df = total_df.rename(columns={"index": "condition"})
+totals_df = df[["Confirmed", "Deaths", "Recovered"]].sum().reset_index(name="count")
+totals_df = totals_df.rename(columns={"index": "condition"})
 
 # Total by Country
 countries_df = (
     df[["Country_Region", "Confirmed", "Deaths", "Recovered"]]
     .groupby("Country_Region")
     .sum()
+    .sort_values(by="Confirmed", ascending=False)
     .reset_index()
 )
+
+dropdown_options = countries_df.sort_values("Country_Region").reset_index()
+dropdown_options = dropdown_options["Country_Region"]
 
